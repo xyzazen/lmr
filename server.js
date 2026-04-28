@@ -38,14 +38,22 @@ function cleanupFiles(...files) {
 }
 
 function luaAvailable() {
-  const candidates = ["lua5.4", "lua54", "lua5.3", "lua53", "lua"];
+  const { execSync } = require("child_process");
+  const candidates = [
+    "lua5.4", "lua54", "lua5.3", "lua53", "lua",
+    "/usr/bin/lua5.4", "/usr/bin/lua",
+    "/usr/local/bin/lua5.4", "/usr/local/bin/lua",
+  ];
   for (const cmd of candidates) {
     try {
-      const { execSync } = require("child_process");
-      execSync(`${cmd} -v`, { stdio: "ignore" });
+      execSync(`"${cmd}" -v`, { stdio: "ignore" });
       return cmd;
     } catch (_) {}
   }
+  try {
+    const found = execSync("which lua5.4 || which lua", { encoding: "utf8" }).trim().split("\n")[0];
+    if (found) return found;
+  } catch (_) {}
   return null;
 }
 
