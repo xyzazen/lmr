@@ -116,8 +116,11 @@ app.post("/api/obfuscate", async (req, res) => {
 
   fs.writeFileSync(inputFile, code, "utf8");
 
-  // Build args
-  const args = [cliPath, inputFile, outputFile];
+  // Working dir must be the lumarge folder so Lua can resolve its own modules
+  const lumargeDir = path.dirname(cliPath);
+
+  // Build args — use just the cli filename (relative), input/output as absolute
+  const args = [path.basename(cliPath), inputFile, outputFile];
 
   if (version && ["lua51", "lua54", "luau"].includes(version)) {
     args.push("--version", version);
@@ -145,7 +148,7 @@ app.post("/api/obfuscate", async (req, res) => {
 
   // Execute
   const startTime = Date.now();
-  execFile(luaCmd, args, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+  execFile(luaCmd, args, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024, cwd: lumargeDir }, (err, stdout, stderr) => {
     const elapsed = Date.now() - startTime;
 
     if (err) {
