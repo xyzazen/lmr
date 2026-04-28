@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Lumarge — Lua/Luau Obfuscator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;600&display=swap"/>
+<style>
+/* ── Reset & Base ─────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:       #080b10;
+  --bg2:      #0d1117;
+  --bg3:      #111820;
+  --border:   #1e2d3d;
+  --border2:  #2a3f55;
+  --accent:   #00d4ff;
+  --accent2:  #7b61ff;
+  --accent3:  #ff3cac;
+  --text:     #c8d8e8;
+  --text2:    #7a9ab5;
+  --text3:    #3d5570;
+  --success:  #00ff88;
+  --error:    #ff4d6d;
+  --warn:     #ffd700;
+  --glow:     0 0 20px rgba(0,212,255,.25);
+  --glow2:    0 0 30px rgba(123,97,255,.3);
+  --radius:   8px;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px;
+  line-height:1.6;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── Background grid ──────────────────────────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.03) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';
+  position:fixed;top:0;left:0;right:0;height:300px;
+  background:radial-gradient(ellipse 80% 100% at 50% 0%,rgba(123,97,255,.12) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
+
+/* ── Layout ───────────────────────────────────────────── */
+#app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── Header ───────────────────────────────────────────── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 28px;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,11,16,.85);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  display:flex;align-items:center;gap:12px;
+}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;box-shadow:var(--glow2);
+}
+.logo-text{
+  font-family:'Orbitron',sans-serif;
+  font-size:20px;font-weight:900;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:.05em;
+}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:.15em;text-transform:uppercase;margin-top:-2px}
+.status-badge{
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;color:var(--text2);
+  background:rgba(0,0,0,.3);
+  border:1px solid var(--border);
+  padding:6px 12px;border-radius:20px;
+}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.status-dot.ok{background:var(--success);box-shadow:0 0 8px var(--success)}
+.status-dot.err{background:var(--error);box-shadow:0 0 8px var(--error)}
+.status-dot.loading{background:var(--warn);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Main ─────────────────────────────────────────────── */
+main{
+  flex:1;display:grid;
+  grid-template-columns:300px 1fr 1fr;
+  grid-template-rows:1fr auto;
+  gap:0;
+  height:calc(100vh - 64px);
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+aside{
+  grid-column:1;grid-row:1/3;
+  border-right:1px solid var(--border);
+  background:var(--bg2);
+  overflow-y:auto;
+  display:flex;flex-direction:column;
+}
+aside::-webkit-scrollbar{width:4px}
+aside::-webkit-scrollbar-track{background:transparent}
+aside::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.sidebar-header{
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--border);
+  font-family:'Syne',sans-serif;
+  font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--text3);
+}
+.options-body{padding:16px;display:flex;flex-direction:column;gap:18px;flex:1}
+
+.opt-group{display:flex;flex-direction:column;gap:8px}
+.opt-label{
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+  display:flex;align-items:center;gap:6px;
+}
+.opt-label::before{content:'▸';font-size:9px;opacity:.6}
+
+select,input[type=number],input[type=text]{
+  width:100%;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  padding:8px 10px;
+  border-radius:var(--radius);
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+  appearance:none;
+  -webkit-appearance:none;
+}
+select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.1)}
+select option{background:var(--bg2)}
+
+/* Toggle ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between}
+.toggle-row span{font-size:11px;color:var(--text2)}
+.toggle{position:relative;width:38px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{
+  position:absolute;inset:0;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:20px;cursor:pointer;transition:.2s;
+}
+.slider::before{
+  content:'';position:absolute;
+  width:14px;height:14px;
+  left:2px;top:50%;transform:translateY(-50%);
+  background:var(--text3);border-radius:50%;transition:.2s;
+}
+.toggle input:checked+.slider{background:var(--accent2);border-color:var(--accent2);box-shadow:var(--glow2)}
+.toggle input:checked+.slider::before{left:20px;background:#fff}
+
+/* Preset Pills ── */
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{
+  padding:5px 12px;border-radius:20px;
+  font-size:11px;cursor:pointer;
+  border:1px solid var(--border);
+  background:var(--bg3);
+  color:var(--text2);transition:.15s;
+  font-family:'JetBrains Mono',monospace;
+}
+.pill:hover{border-color:var(--accent2);color:var(--accent2)}
+.pill.active{
+  background:rgba(123,97,255,.2);
+  border-color:var(--accent2);color:var(--accent2);
+  box-shadow:0 0 10px rgba(123,97,255,.2);
+}
+
+/* Version Pills ── */
+.vpills{display:flex;gap:6px}
+.vpill{
+  flex:1;padding:6px 0;text-align:center;border-radius:6px;
+  font-size:11px;cursor:pointer;
+  border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);transition:.15s;
+  font-family:'JetBrains Mono',monospace;
+}
+.vpill:hover{border-color:var(--accent);color:var(--accent)}
+.vpill.active{
+  background:rgba(0,212,255,.1);
+  border-color:var(--accent);color:var(--accent);
+  box-shadow:0 0 10px rgba(0,212,255,.15);
+}
+
+/* Seed row ── */
+.seed-row{display:flex;gap:6px}
+.seed-row input{flex:1}
+.dice-btn{
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--text2);padding:0 10px;border-radius:var(--radius);
+  cursor:pointer;font-size:16px;transition:.15s;
+  display:flex;align-items:center;
+}
+.dice-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* Action btn ── */
+.obfuscate-btn{
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border:none;border-radius:var(--radius);
+  color:#fff;font-family:'Orbitron',sans-serif;
+  font-size:12px;font-weight:700;letter-spacing:.1em;
+  cursor:pointer;transition:.2s;
+  box-shadow:var(--glow2);
+  position:relative;overflow:hidden;
+}
+.obfuscate-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);
+  opacity:0;transition:.2s;
+}
+.obfuscate-btn:hover{transform:translateY(-1px);box-shadow:0 0 35px rgba(123,97,255,.5)}
+.obfuscate-btn:hover::before{opacity:1}
+.obfuscate-btn:active{transform:translateY(0)}
+.obfuscate-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.obfuscate-btn.loading{animation:btnpulse 1s infinite}
+@keyframes btnpulse{0%,100%{box-shadow:var(--glow2)}50%{box-shadow:0 0 40px rgba(123,97,255,.7)}}
+
+.clear-btn{
+  width:100%;padding:8px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text3);font-family:'JetBrains Mono',monospace;
+  font-size:11px;border-radius:var(--radius);cursor:pointer;transition:.15s;
+}
+.clear-btn:hover{border-color:var(--error);color:var(--error)}
+
+/* ── Editor panels ────────────────────────────────────── */
+.panel{
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--border);
+  overflow:hidden;
+}
+.panel:last-child{border-right:none}
+
+.panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.panel-title{
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;color:var(--text2);letter-spacing:.08em;
+}
+.panel-dot{width:10px;height:10px;border-radius:50%}
+.dot-input{background:#ffbd44}
+.dot-output{background:var(--success);box-shadow:0 0 6px var(--success)}
+
+.panel-actions{display:flex;gap:6px}
+.icon-btn{
+  background:transparent;border:1px solid var(--border);
+  color:var(--text3);padding:4px 8px;border-radius:5px;
+  cursor:pointer;font-size:11px;transition:.15s;
+  font-family:'JetBrains Mono',monospace;
+}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+textarea{
+  flex:1;width:100%;
+  background:var(--bg);
+  border:none;outline:none;resize:none;
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12.5px;line-height:1.7;
+  padding:16px;
+  tab-size:2;
+}
+textarea::placeholder{color:var(--text3)}
+textarea:read-only{cursor:default}
+
+/* Line numbers wrapper */
+.editor-wrap{flex:1;display:flex;overflow:hidden}
+.line-nums{
+  background:var(--bg2);
+  color:var(--text3);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12.5px;line-height:1.7;
+  padding:16px 10px 16px 16px;
+  text-align:right;
+  user-select:none;
+  border-right:1px solid var(--border);
+  min-width:44px;
+  overflow:hidden;
+  white-space:pre;
+}
+
+/* ── Bottom stats ─────────────────────────────────────── */
+.stats-bar{
+  grid-column:2/4;
+  display:flex;align-items:center;gap:20px;
+  padding:8px 20px;
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  font-size:11px;color:var(--text3);
+}
+.stat{display:flex;align-items:center;gap:6px}
+.stat-val{color:var(--text2);font-weight:600}
+.stat-val.green{color:var(--success)}
+.stat-val.blue{color:var(--accent)}
+.stat-val.purple{color:var(--accent2)}
+.stat-sep{color:var(--border2)}
+
+/* ── Toast ────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  padding:12px 18px;border-radius:var(--radius);
+  font-size:12px;z-index:999;
+  transform:translateY(60px);opacity:0;
+  transition:.3s cubic-bezier(.16,1,.3,1);
+  max-width:380px;line-height:1.5;
+}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{background:rgba(0,255,136,.12);border:1px solid var(--success);color:var(--success)}
+#toast.error{background:rgba(255,77,109,.12);border:1px solid var(--error);color:var(--error)}
+#toast.info{background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent)}
+
+/* ── Spinner overlay ──────────────────────────────────── */
+#spinner{
+  display:none;position:absolute;inset:0;
+  background:rgba(8,11,16,.7);backdrop-filter:blur(2px);
+  align-items:center;justify-content:center;
+  z-index:50;flex-direction:column;gap:12px;
+}
+#spinner.active{display:flex}
+.spin-ring{
+  width:42px;height:42px;
+  border:3px solid var(--border2);
+  border-top-color:var(--accent2);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-txt{color:var(--text2);font-size:12px;letter-spacing:.1em}
+
+/* Error panel ── */
+#error-panel{
+  display:none;
+  background:rgba(255,77,109,.07);
+  border-top:1px solid rgba(255,77,109,.3);
+  padding:10px 16px;
+  font-size:11px;color:var(--error);
+  white-space:pre-wrap;
+  max-height:100px;overflow-y:auto;
+  flex-shrink:0;
+}
+#error-panel.active{display:block}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔮</div>
+    <div>
+      <div class="logo-text">LUMARGE</div>
+      <div class="logo-sub">Lua / Luau Obfuscator</div>
+    </div>
+  </div>
+  <div class="status-badge">
+    <div class="status-dot loading" id="statusDot"></div>
+    <span id="statusText">Checking server...</span>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────── -->
+<main>
+
+  <!-- ── Sidebar ──────────────────────────────────────── -->
+  <aside>
+    <div class="sidebar-header">⚙ Configuration</div>
+    <div class="options-body">
+
+      <!-- Target Version -->
+      <div class="opt-group">
+        <div class="opt-label">Target Version</div>
+        <div class="vpills">
+          <div class="vpill active" data-version="lua51">Lua 5.1</div>
+          <div class="vpill" data-version="lua54">Lua 5.4</div>
+          <div class="vpill" data-version="luau">Luau</div>
+        </div>
+      </div>
+
+      <!-- Preset -->
+      <div class="opt-group">
+        <div class="opt-label">Obfuscation Preset</div>
+        <div class="pills">
+          <div class="pill" data-preset="minify">Minify</div>
+          <div class="pill" data-preset="weak">Weak</div>
+          <div class="pill active" data-preset="medium">Medium</div>
+          <div class="pill" data-preset="strong">Strong</div>
+        </div>
+      </div>
+
+      <!-- Rename Variables -->
+      <div class="opt-group">
+        <div class="opt-label">Rename Variables</div>
+        <select id="renVariables">
+          <option value="">-- default --</option>
+          <option value="enable">Enable</option>
+          <option value="disable">Disable</option>
+          <option value="number">Number</option>
+          <option value="mangled">Mangled</option>
+          <option value="mangledShuffled">Mangled Shuffled</option>
+        </select>
+      </div>
+
+      <!-- Seed -->
+      <div class="opt-group">
+        <div class="opt-label">Random Seed</div>
+        <div class="seed-row">
+          <input type="number" id="seed" placeholder="Auto (random)" min="0"/>
+          <button class="dice-btn" id="diceBtn" title="Random seed">🎲</button>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="opt-group">
+        <div class="opt-label">Options</div>
+
+        <div class="toggle-row">
+          <span>Pretty Print</span>
+          <label class="toggle"><input type="checkbox" id="prettyPrint"/><span class="slider"></span></label>
+        </div>
+
+        <div class="toggle-row" style="margin-top:10px">
+          <span>Lua Bundle</span>
+          <label class="toggle"><input type="checkbox" id="bundle"/><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <!-- Actions -->
+      <div class="opt-group">
+        <button class="obfuscate-btn" id="obfuscateBtn">▶ OBFUSCATE</button>
+        <button class="clear-btn" id="clearBtn">✕ Clear All</button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── Input panel ───────────────────────────────────── -->
+  <div class="panel" style="grid-column:2;grid-row:1;position:relative">
+    <div class="panel-header">
+      <div class="panel-title">
+        <div class="panel-dot dot-input"></div>
+        INPUT — Source Code
+      </div>
+      <div class="panel-actions">
+        <button class="icon-btn" id="pasteBtn">⌘ Paste</button>
+        <button class="icon-btn" id="uploadBtn">↑ Upload</button>
+        <input type="file" id="fileInput" accept=".lua,.luau" style="display:none"/>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="inputLineNums">1</div>
+      <textarea id="inputCode" placeholder="-- Paste your Lua / Luau code here...
+
+-- Example:
+local function greet(name)
+  local msg = 'Hello, ' .. name .. '!'
+  print(msg)
+  return msg
+end
+
+greet('World')" spellcheck="false"></textarea>
+    </div>
+    <div id="error-panel"></div>
+  </div>
+
+  <!-- ── Output panel ──────────────────────────────────── -->
+  <div class="panel" style="grid-column:3;grid-row:1;position:relative">
+    <div class="panel-header">
+      <div class="panel-title">
+        <div class="panel-dot dot-output" id="outputDot"></div>
+        OUTPUT — Obfuscated
+      </div>
+      <div class="panel-actions">
+        <button class="icon-btn" id="copyBtn">⎘ Copy</button>
+        <button class="icon-btn" id="downloadBtn">↓ Download</button>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="outputLineNums">1</div>
+      <textarea id="outputCode" readonly placeholder="// Output will appear here..." spellcheck="false"></textarea>
+    </div>
+    <div id="spinner">
+      <div class="spin-ring"></div>
+      <div class="spin-txt">OBFUSCATING...</div>
+    </div>
+  </div>
+
+  <!-- ── Stats bar ─────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat">Input: <span class="stat-val" id="statInput">0 B</span></div>
+    <span class="stat-sep">|</span>
+    <div class="stat">Output: <span class="stat-val green" id="statOutput">—</span></div>
+    <span class="stat-sep">|</span>
+    <div class="stat">Ratio: <span class="stat-val blue" id="statRatio">—</span></div>
+    <span class="stat-sep">|</span>
+    <div class="stat">Time: <span class="stat-val purple" id="statTime">—</span></div>
+    <span class="stat-sep">|</span>
+    <div class="stat">Lines: <span class="stat-val" id="statLines">0</span></div>
+  </div>
+
+</main>
+
+</div><!-- #app -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let selectedVersion = 'lua51';
+let selectedPreset  = 'medium';
+
+// ── DOM refs ───────────────────────────────────────────────────────────────────
+const inputCode    = document.getElementById('inputCode');
+const outputCode   = document.getElementById('outputCode');
+const obfuscateBtn = document.getElementById('obfuscateBtn');
+const errorPanel   = document.getElementById('error-panel');
+const spinner      = document.getElementById('spinner');
+const statusDot    = document.getElementById('statusDot');
+const statusText   = document.getElementById('statusText');
+
+// ── Health check ───────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    if (d.lumargeReady) {
+      statusDot.className = 'status-dot ok';
+      statusText.textContent = `Ready — Lua: ${d.lua}`;
+    } else {
+      statusDot.className = 'status-dot err';
+      statusText.textContent = `Not ready: Lua=${d.lua} | CLI=${d.lumarge}`;
+    }
+  } catch (_) {
+    statusDot.className = 'status-dot err';
+    statusText.textContent = 'Server offline';
+  }
+}
+checkHealth();
+
+// ── Version pills ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.vpill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.vpill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selectedVersion = p.dataset.version;
+  });
+});
+
+// ── Preset pills ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selectedPreset = p.dataset.preset;
+  });
+});
+
+// ── Dice seed ──────────────────────────────────────────────────────────────────
+document.getElementById('diceBtn').addEventListener('click', () => {
+  document.getElementById('seed').value = Math.floor(Math.random() * 999999) + 1;
+});
+
+// ── Line numbers ───────────────────────────────────────────────────────────────
+function updateLineNums(textarea, numEl) {
+  const lines = textarea.value.split('\n').length;
+  numEl.textContent = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+}
+function syncScroll(textarea, numEl) {
+  numEl.scrollTop = textarea.scrollTop;
+}
+function attachEditor(ta, numEl) {
+  updateLineNums(ta, numEl);
+  ta.addEventListener('input', () => updateLineNums(ta, numEl));
+  ta.addEventListener('scroll', () => syncScroll(ta, numEl));
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = ta.selectionStart, end = ta.selectionEnd;
+      ta.value = ta.value.slice(0,s) + '  ' + ta.value.slice(end);
+      ta.selectionStart = ta.selectionEnd = s + 2;
+      updateLineNums(ta, numEl);
+    }
+  });
+}
+attachEditor(inputCode, document.getElementById('inputLineNums'));
+attachEditor(outputCode, document.getElementById('outputLineNums'));
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+}
+inputCode.addEventListener('input', () => {
+  const bytes = new TextEncoder().encode(inputCode.value).length;
+  document.getElementById('statInput').textContent = formatBytes(bytes);
+  document.getElementById('statLines').textContent = inputCode.value.split('\n').length;
+});
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
+document.getElementById('uploadBtn').addEventListener('click', () =>
+  document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    inputCode.value = ev.target.result;
+    inputCode.dispatchEvent(new Event('input'));
+    updateLineNums(inputCode, document.getElementById('inputLineNums'));
+    toast(`Loaded: ${file.name}`, 'info');
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// ── Paste ──────────────────────────────────────────────────────────────────────
+document.getElementById('pasteBtn').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    inputCode.value = text;
+    inputCode.dispatchEvent(new Event('input'));
+    updateLineNums(inputCode, document.getElementById('inputLineNums'));
+    toast('Pasted from clipboard', 'info');
+  } catch (_) { toast('Cannot access clipboard', 'error'); }
+});
+
+// ── Copy ───────────────────────────────────────────────────────────────────────
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  if (!outputCode.value) return toast('No output to copy', 'error');
+  await navigator.clipboard.writeText(outputCode.value);
+  toast('Copied to clipboard!', 'success');
+});
+
+// ── Download ───────────────────────────────────────────────────────────────────
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (!outputCode.value) return toast('No output to download', 'error');
+  const blob = new Blob([outputCode.value], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'obfuscated.lua';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded!', 'success');
+});
+
+// ── Clear ──────────────────────────────────────────────────────────────────────
+document.getElementById('clearBtn').addEventListener('click', () => {
+  inputCode.value = '';
+  outputCode.value = '';
+  errorPanel.textContent = '';
+  errorPanel.classList.remove('active');
+  ['statOutput','statRatio','statTime'].forEach(id =>
+    document.getElementById(id).textContent = '—');
+  document.getElementById('statInput').textContent = '0 B';
+  document.getElementById('statLines').textContent = '0';
+  [document.getElementById('inputLineNums'), document.getElementById('outputLineNums')]
+    .forEach(el => el.textContent = '1');
+  document.getElementById('outputDot').style.background = '';
+  document.getElementById('outputDot').style.boxShadow = '';
+});
+
+// ── Obfuscate ──────────────────────────────────────────────────────────────────
+obfuscateBtn.addEventListener('click', () => doObfuscate());
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') doObfuscate();
+});
+
+async function doObfuscate() {
+  const code = inputCode.value.trim();
+  if (!code) return toast('Please enter some code first', 'error');
+
+  // UI state
+  obfuscateBtn.disabled = true;
+  obfuscateBtn.textContent = '⏳ OBFUSCATING...';
+  obfuscateBtn.classList.add('loading');
+  spinner.classList.add('active');
+  errorPanel.classList.remove('active');
+  outputCode.value = '';
+
+  const payload = {
+    code,
+    version: selectedVersion,
+    preset: selectedPreset,
+    seed: document.getElementById('seed').value || undefined,
+    pretty: document.getElementById('prettyPrint').checked,
+    renVariables: document.getElementById('renVariables').value || undefined,
+    bundle: document.getElementById('bundle').checked,
+  };
+
+  try {
+    const res = await fetch('/api/obfuscate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      errorPanel.textContent = data.error || 'Unknown error';
+      errorPanel.classList.add('active');
+      toast('Obfuscation failed', 'error');
+    } else {
+      outputCode.value = data.code;
+      updateLineNums(outputCode, document.getElementById('outputLineNums'));
+      // Stats
+      const s = data.stats;
+      document.getElementById('statOutput').textContent = formatBytes(s.obfuscatedSize);
+      document.getElementById('statRatio').textContent  = s.ratio + '%';
+      document.getElementById('statTime').textContent   = s.elapsed + 'ms';
+      // Output dot blink
+      const dot = document.getElementById('outputDot');
+      dot.style.background = 'var(--success)';
+      dot.style.boxShadow  = '0 0 10px var(--success)';
+      toast(`Done! ${formatBytes(s.originalSize)} → ${formatBytes(s.obfuscatedSize)} in ${s.elapsed}ms`, 'success');
+    }
+  } catch (err) {
+    errorPanel.textContent = 'Network error: ' + err.message;
+    errorPanel.classList.add('active');
+    toast('Network error', 'error');
+  } finally {
+    obfuscateBtn.disabled = false;
+    obfuscateBtn.textContent = '▶ OBFUSCATE';
+    obfuscateBtn.classList.remove('loading');
+    spinner.classList.remove('active');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
