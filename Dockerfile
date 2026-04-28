@@ -15,12 +15,16 @@ RUN npm install --production
 # Copy source
 COPY . .
 
-# Clone Lumarge if not already present
-RUN if [ ! -f "lumarge/cli.lua" ] && [ ! -f "cli.lua" ]; then \
-      git clone --depth=1 https://github.com/tlredz/Lumarge lumarge; \
-    fi
+# 1. Clone Prometheus as complete base (has all modules including namegenerators)
+# 2. Overlay Lumarge modified files on top
+# Lumarge repo is incomplete (under development) - missing namegenerators & other modules
+RUN git clone --depth=1 https://github.com/prometheus-lua/Prometheus lumarge && \
+    git clone --depth=1 https://github.com/tlredz/Lumarge /tmp/lumarge-src && \
+    cp -f  /tmp/lumarge-src/cli.lua        lumarge/cli.lua && \
+    cp -f  /tmp/lumarge-src/configs.json   lumarge/configs.json && \
+    cp -rf /tmp/lumarge-src/source/*       lumarge/source/ && \
+    rm -rf /tmp/lumarge-src
 
-# Create temp dir
 RUN mkdir -p temp
 
 EXPOSE 3000
